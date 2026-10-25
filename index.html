@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chongde Volunteers 崇德义工团</title>
+<meta name="description" content="Chongde Volunteers 崇德义工团 - Saturday Morning Smiles at Lentor Health Nursing Home, Singapore.">
+</head>
+<body>
+<div id="root"></div>
+<script>
+var ASSET_MAP = {"2L3TNOC4.woff2": "5-2L3TNOC4.woff2", "2MU6BTQP.jpg": "6-2MU6BTQP.jpg", "2RYQEVVF.jpg": "7-2RYQEVVF.jpg", "2VTNQ6DT.jpg": "8-2VTNQ6DT.jpg", "32NN3E6A.jpg": "9-32NN3E6A.jpg", "4LM3BVXN.jpg": "10-4LM3BVXN.jpg", "6HBTCF3E.woff2": "11-6HBTCF3E.woff2", "7DWQNDER.jpg": "12-7DWQNDER.jpg", "7LF3YMLX.jpg": "13-7LF3YMLX.jpg", "7UAGB34N.woff2": "14-7UAGB34N.woff2", "BGL7WMH2.jpg": "15-BGL7WMH2.jpg", "D3G6SPPZ.jpg": "16-D3G6SPPZ.jpg", "D6PXYQH7.jpg": "17-D6PXYQH7.jpg", "DCUCO6EG.woff2": "18-DCUCO6EG.woff2", "EDUFJISK.woff2": "19-EDUFJISK.woff2", "ESVYJHOG.woff2": "20-ESVYJHOG.woff2", "FEEX2CSV.jpg": "21-FEEX2CSV.jpg", "GCTOPU5T.jpg": "22-GCTOPU5T.jpg", "GDKC2U5K.jpg": "23-GDKC2U5K.jpg", "GWBPHQBQ.woff2": "24-GWBPHQBQ.woff2", "JXZIX2LZ.jpg": "25-JXZIX2LZ.jpg", "KWXQJNGF.jpg": "26-KWXQJNGF.jpg", "KZYIEKM3.woff2": "27-KZYIEKM3.woff2", "MH3AD4AP.jpg": "28-MH3AD4AP.jpg", "MVISLPGQ.mp4": "29-MVISLPGQ.mp4", "MZI7ONK6.jpg": "30-MZI7ONK6.jpg", "PI3JSDIL.jpg": "31-PI3JSDIL.jpg", "PQNVRRKH.otf": "32-PQNVRRKH.otf", "QESPMI4C.jpg": "33-QESPMI4C.jpg", "RK4X2PXO.woff2": "34-RK4X2PXO.woff2", "RLWFYQL3.jpg": "35-RLWFYQL3.jpg", "RYJG7PSC.jpg": "36-RYJG7PSC.jpg", "VLPUCZIF.jpg": "37-VLPUCZIF.jpg", "WM77GZQE.ttf": "38-WM77GZQE.ttf", "YEAKSKRD.jpg": "39-YEAKSKRD.jpg", "ZITNQAWX.woff2": "40-ZITNQAWX.woff2"};
+var CSS_FILE = "3-main.css";
+var JS_FILE = "4-main.js";
+(function(){
+  var initial = '/';
+  try { initial = decodeURIComponent(location.hash.slice(1) || '/'); } catch (e) {}
+  window.instinctFile = Object.freeze({
+    initialRoute: initial,
+    route: function(path){
+      if (typeof path === 'string' && path.charAt(0) === '/' && path.indexOf('//') !== 0 && path.length <= 2048) {
+        var target = '#' + path;
+        if (location.hash !== target) history.pushState(null, '', target);
+      }
+    }
+  });
+  window.addEventListener('hashchange', function(){
+    var r = '/';
+    try { r = decodeURIComponent(location.hash.slice(1) || '/'); } catch (e) {}
+    window.dispatchEvent(new CustomEvent('instinct-route', { detail: r }));
+  });
+})();
+async function boot(){
+  try {
+    var css = await (await fetch(CSS_FILE)).text();
+    css = css.replace(/url\("([A-Z0-9]+\.(?:woff2|otf|ttf))"\)/g, function(m, f){ return 'url("' + (ASSET_MAP[f] || f) + '")'; });
+    var st = document.createElement('style');
+    st.textContent = css;
+    document.head.append(st);
+    var js = await (await fetch(JS_FILE)).text();
+    js = js.replace(/"\.\/([A-Z0-9]+\.(?:jpg|mp4))"/g, function(m, f){ return '"./' + (ASSET_MAP[f] || f) + '"'; });
+    var s = document.createElement('script');
+    s.src = URL.createObjectURL(new Blob([js], { type: 'text/javascript' }));
+    document.body.append(s);
+  } catch (e) {
+    document.getElementById('root').textContent = 'Failed to load the site. Please refresh.';
+  }
+}
+boot();
+</script>
+</body>
+</html>
