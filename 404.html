@@ -14,7 +14,16 @@ var CSS_FILE = "3-main.css";
 var JS_FILE = "4-main.js";
 (function(){
   var initial = '/';
-  try { initial = decodeURIComponent(location.hash.slice(1) || '/'); } catch (e) {}
+  try {
+    initial = decodeURIComponent(location.hash.slice(1) || '/');
+    if (initial === '/') {
+      var m = location.pathname.match(/chongdevolunteers\.github\.io\/([^\/]+)\/?$/);
+      if (m && ['about','gallery','volunteer','contact'].indexOf(m[1]) >= 0) {
+        initial = '/' + m[1];
+        try { history.replaceState(null, '', 'index.html#' + initial); } catch (e2) {}
+      }
+    }
+  } catch (e) {}
   window.instinctFile = Object.freeze({
     initialRoute: initial,
     route: function(path){
