@@ -41,12 +41,12 @@ var JS_FILE = "4-main.js";
 })();
 async function boot(){
   try {
-    var css = await (await fetch(CSS_FILE)).text();
+    var css = await (await fetch(CSS_FILE, {cache:'no-cache'})).text();
     css = css.replace(/url\("([A-Z0-9]+\.(?:woff2|otf|ttf))"\)/g, function(m, f){ return 'url("' + (ASSET_MAP[f] || f) + '")'; });
     var st = document.createElement('style');
     st.textContent = css;
     document.head.append(st);
-    var js = await (await fetch(JS_FILE)).text();
+    var js = await (await fetch(JS_FILE, {cache:'no-cache'})).text();
     js = js.replace(/"\.\/([A-Z0-9]+\.(?:jpg|mp4))"/g, function(m, f){ return '"./' + (ASSET_MAP[f] || f) + '"'; });
     var s = document.createElement('script');
     s.src = URL.createObjectURL(new Blob([js], { type: 'text/javascript' }));
