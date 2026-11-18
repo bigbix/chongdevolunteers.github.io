@@ -1,0 +1,99 @@
+name: One-time photo history cleanup
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  clean-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Replace older photo objects and verify unchanged current site
+        shell: python
+        run: |
+          import functools, subprocess
+          
+          BASE = '93bda6982274afc6ccdb0ecdd67c5a9c0991d8eb'
+          WORKFLOW = '.github/workflows/photo-history-cleanup.yml'
+          SUFFIXES = ['42-DN5AK7B3.jpg','43-EJBFARME.jpg','44-KQYILUTR.jpg','45-KUI5SUEP.jpg','46-QNCTE3KZ.jpg','47-RJM53EJK.jpg','48-T5K4YIEK.jpg','49-TTTID5W3.jpg','50-YFSSC73Y.jpg','7LF3YMLX.jpg']
+          def git(*args, data=None):
+              return subprocess.check_output(['git', *args], input=data)
+          def text(*args):
+              return git(*args).decode().strip()
+          def entries(tree):
+              result=[]
+              for entry in git('ls-tree','-z',tree).split(b'\0'):
+                  if entry:
+                      meta,name=entry.split(b'\t',1)
+                      mode,kind,oid=meta.split(b' ')
+                      result.append((mode,kind,oid,name))
+              return result
+          oldtip=text('rev-parse','HEAD')
+          refs=git('ls-remote','--heads','--tags','origin').decode().splitlines()
+          assert len(refs)==1 and refs[0].split()==[oldtip,'refs/heads/main'], 'Unexpected remote ref state'
+          changed=text('diff','--name-only',BASE,oldtip).splitlines()
+          assert changed in ([],[WORKFLOW]), 'Site changed since reviewed baseline'
+          assert text('rev-parse',BASE+'^{tree}') == '597787aa2f807a605075f7c428589408cd9e13b1'
+          commits=text('rev-list','--reverse','--topo-order',oldtip).splitlines()
+          assert len(commits) in (55,56), 'Unexpected history length'
+          current={}
+          for mode,kind,oid,name in entries(oldtip+'^{tree}'):
+              for suffix in SUFFIXES:
+                  if name.decode().endswith('-'+suffix):
+                      assert suffix not in current
+                      current[suffix]=oid
+          assert len(current)==10
+          replacements={}
+          for commit in commits:
+              for mode,kind,oid,name in entries(commit+'^{tree}'):
+                  for suffix,target in current.items():
+                      if name.decode().endswith('-'+suffix) and oid!=target:
+                          assert kind==b'blob'
+                          assert oid not in replacements or replacements[oid]==target
+                          replacements[oid]=target
+          assert len(replacements)==10, 'Unexpected set of older photo objects'
+          @functools.lru_cache(None)
+          def rewrite_tree(oid):
+              newentries=[]
+              for mode,kind,child,name in entries(oid.decode()):
+                  newchild=rewrite_tree(child) if kind==b'tree' else replacements.get(child,child)
+                  newentries.append(b' '.join([mode,kind,newchild])+b'\t'+name+b'\0')
+              return git('mktree','-z',data=b''.join(newentries)).strip()
+          translated={}
+          for commit in commits:
+              raw=git('cat-file','commit',commit)
+              header,body=raw.split(b'\n\n',1)
+              lines=header.split(b'\n')
+              result=[]
+              skip=False
+              for line in lines:
+                  if line.startswith(b' '):
+                      if not skip: result.append(line)
+                      continue
+                  skip=line.startswith((b'gpgsig ',b'mergetag '))
+                  if skip: continue
+                  if line.startswith(b'tree '):
+                      line=b'tree '+rewrite_tree(line[5:])
+                  elif line.startswith(b'parent '):
+                      line=b'parent '+translated[line[7:].decode()].encode()
+                  result.append(line)
+              altered=b'\n'.join(result)+b'\n\n'+body
+              if altered==raw:
+                  translated[commit]=commit
+              else:
+                  translated[commit]=git('hash-object','-t','commit','-w','--stdin',data=altered).decode().strip()
+          newtip=translated[oldtip]
+          assert newtip!=oldtip
+          assert text('rev-parse',newtip+'^{tree}')==text('rev-parse',oldtip+'^{tree}'), 'Current site tree changed'
+          reachable={line.split(b' ',1)[0] for line in git('rev-list','--objects',newtip).splitlines()}
+          assert not reachable.intersection(replacements), 'Older image object remains reachable'
+          assert text('rev-list','--count',newtip)==str(len(commits))
+          print('Validated: 10 older JPEG objects replaced; current site tree unchanged; commit count',len(commits))
+          print('Old tip',oldtip,'new tip',newtip)
+          if True:
+              subprocess.run(['git','push','--force-with-lease=refs/heads/main:'+oldtip,'origin',newtip+':refs/heads/main'],check=True)
+              assert git('ls-remote','origin','refs/heads/main').decode().split()[0]==newtip
+              print('Remote main verified at cleaned tip')
